@@ -1,31 +1,38 @@
 # Szydło-Worek 🧶
 
-Osobista biblioteka wzorów do szydełkowania i robienia na drutach. Aplikacja webowa do zarządzania kolekcją wzorów — wzorów standardowych, CAL-i (Crochet/Knit Along) oraz wzorów testowych.
+Osobista biblioteka wzorów i baza motków do szydełkowania i robienia na drutach.
+
+**Live:** [szydlo-worek.vercel.app](https://szydlo-worek.vercel.app)
+
+---
 
 ## Funkcje
 
-### Typy wpisów
+### Wzory — typy wpisów
 - **Wzór** — standardowy zakupiony lub bezpłatny wzór
 - **CAL** (Crochet/Knit Along) — wzory z harmonogramem publikacji i datami trwania
 - **Testy** — wzory oddane do testowania z datą zakończenia
 
 ### Zarządzanie wzorami
 - Dodawanie, edytowanie i usuwanie wzorów
-- Miniatura z okładką lub automatycznie generowany gradient z pierwszą literą nazwy
+- Okładka jako plik zdjęcia (upload do Supabase Storage)
+- Załącznik PDF lub zdjęcie wzoru (upload do Supabase Storage)
 - Tagi z filtrowaniem wielokrotnym
 - Notatki
-- Metraż (zakres od–do)
-- Przechowywanie pliku PDF/zdjęcia wzoru (base64)
-
-### Dynamiczne statusy
-- **CAL**: automatycznie wyświetla „start za X dni", „w trakcie" lub „zakończony" na podstawie dat
-- **Testy**: wyświetla „X dni do końca" lub „zakończone" na podstawie daty końca
+- Metraż (zakres od–do) — do dopasowania z motkami
+- Dynamiczne statusy CAL i testów (licznik dni, trwa, zakończony)
 
 ### Baza autorów
 - Zapis autorów z danymi kontaktowymi (www, Facebook, Instagram)
-- Autouzupełnianie przy wpisywaniu w polu autora
+- Autouzupełnianie przy wpisywaniu
 - Obsługa wielu autorów oddzielonych przecinkami
-- Podgląd wzorów powiązanych z danym autorem
+- Podgląd wzorów powiązanych z autorem
+
+### Moje Motki
+- Baza motków z metrażem, firmą, zdjęciem i komentarzem
+- Dowijka — osobny toggle z polem na metraż dowijki
+- **Motek w użyciu** — powiązanie motka z wzorem z bazy (wyszukiwarka + szybkie dodanie nowego wzoru)
+- Upload zdjęcia motka do Supabase Storage
 
 ### Filtrowanie i wyszukiwanie
 - Wyszukiwanie po nazwie i autorze
@@ -33,18 +40,28 @@ Osobista biblioteka wzorów do szydełkowania i robienia na drutach. Aplikacja w
 - Filtrowanie po tagach (wielokrotny wybór)
 
 ### Interfejs
+- Nawigacja zakładkowa: **Wzory** / **Moje Motki**
 - Tryb jasny / ciemny
 - Responsywny układ siatki (2–5 kolumn)
 - Daty w formacie dd/mm/rrrr
+
+---
 
 ## Technologie
 
 - [React](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
 - [Vite](https://vitejs.dev/)
 - [Tailwind CSS v4](https://tailwindcss.com/)
-- `localStorage` — dane przechowywane lokalnie w przeglądarce
+- [Supabase](https://supabase.com/) — baza danych (PostgreSQL) + Storage na pliki
 
-## Uruchomienie
+## Uruchomienie lokalne
+
+Skopiuj `.env.example` do `.env` i uzupełnij klucze Supabase:
+
+```
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
+```
 
 ```bash
 npm install
@@ -59,9 +76,10 @@ Aplikacja dostępna pod adresem `http://localhost:5173`.
 src/
 ├── components/
 │   ├── layout/       # Header
+│   ├── motki/        # MotekCard, MotekForm, MotekDetail
 │   ├── patterns/     # PatternCard, PatternForm, PatternDetail, StatusBadge
 │   └── ui/           # Modal, AuthorsModal, AuthorInput, TagInput, DateInput
-├── hooks/            # usePatterns, useAuthors, useTheme
-├── lib/              # storage, colors, dateStatus
+├── hooks/            # usePatterns, useAuthors, useMotki, useTheme
+├── lib/              # supabase, storage, colors, dateStatus
 └── types/            # typy TypeScript
 ```
