@@ -1,31 +1,34 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
+import { fetchAuthors, insertAuthor, patchAuthor, removeAuthor } from '../lib/storage'
 import type { Author } from '../types'
-import {
-  getAuthors,
-  addAuthor as saveAuthor,
-  removeAuthor as deleteAuthor,
-  updateAuthor as renameAuthor,
-} from '../lib/storage'
 
 export function useAuthors() {
-  const [authors, setAuthors] = useState<Author[]>(() => getAuthors())
+  const [authors, setAuthors] = useState<Author[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const refresh = () => setAuthors(getAuthors())
-
-  const addAuthor = useCallback((name: string) => {
-    saveAuthor(name)
-    setAuthors(getAuthors())
+  const refresh = useCallback(async () => {
+    const data = await fetchAuthors()
+    setAuthors(data)
   }, [])
 
-  const removeAuthor = useCallback((id: string) => {
-    deleteAuthor(id)
-    setAuthors(getAuthors())
-  }, [])
+  useEffect(() => {
+    refresh().finally(() => setLoading(false))
+  }, [refresh])
 
-  const updateAuthor = useCallback((id: string, updates: Partial<Omit<Author, 'id'>>) => {
-    renameAuthor(id, updates)
-    setAuthors(getAuthors())
-  }, [])
+  const addAuthor = useCallback(async (name: string) => {
+    await insertAuthor(name)
+    await refresh()
+  }, [refresh])
 
-  return { authors, addAuthor, removeAuthor, updateAuthor, refresh }
+  const updateAuthor = useCallback(async (id: string, updates: Partial<Omit<Author, 'id'>>) => {
+    await patchAuthor(id, updates)
+    await refresh()
+  }, [refresh])
+
+  const removeAuthorById = useCallback(async (id: string) => {
+    await removeAuthor(id)
+    await refresh()
+  }, [refresh])
+
+  return { authors, loading, addAuthor, removeAuthor: removeAuthorById, updateAuthor }
 }

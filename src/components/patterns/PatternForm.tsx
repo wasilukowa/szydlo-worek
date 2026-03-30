@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import type { Pattern, Currency, CalSchedulePart } from '../../types'
+import type { Pattern, Currency, CalSchedulePart, Author } from '../../types'
+import { uploadFile } from '../../lib/storage'
 import { TagInput } from '../ui/TagInput'
 import { AuthorInput } from '../ui/AuthorInput'
 import { DateInput } from '../ui/DateInput'
@@ -9,9 +10,9 @@ interface PatternFormProps {
   initial?: Pattern
   calMode?: boolean
   testMode?: boolean
-  authors: string[]
+  authors: Author[]
   onAddAuthor: (author: string) => void
-  onSave: (pattern: Pattern) => void
+  onSave: (pattern: Pattern) => Promise<void>
   onCancel: () => void
 }
 
@@ -28,6 +29,7 @@ function newPart(index: number): CalSchedulePart {
 export function PatternForm({ initial, calMode = false, testMode = false, authors, onAddAuthor, onSave, onCancel }: PatternFormProps) {
   const now = new Date().toISOString().split('T')[0]
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const coverInputRef = useRef<HTMLInputElement>(null)
 
   const [name, setName] = useState(initial?.name ?? '')
   const [author, setAuthor] = useState(initial?.author ?? '')
@@ -37,8 +39,11 @@ export function PatternForm({ initial, calMode = false, testMode = false, author
   const [metrageFrom, setMetrageFrom] = useState(initial?.metrageFrom?.toString() ?? '')
   const [metrageTo, setMetrageTo] = useState(initial?.metrageTo?.toString() ?? '')
   const [coverImageUrl, setCoverImageUrl] = useState(initial?.coverImageUrl ?? '')
+  const [pendingCoverFile, setPendingCoverFile] = useState<File | null>(null)
+  const [coverPreview, setCoverPreview] = useState(initial?.coverImageUrl ?? '')
   const [pdfUrl, setPdfUrl] = useState(initial?.pdfUrl ?? '')
   const [pdfFileName, setPdfFileName] = useState(initial?.pdfFileName ?? '')
+  const [pendingFile, setPendingFile] = useState<File | null>(null)
   const [tags, setTags] = useState<string[]>(initial?.tags ?? [])
   const [notes, setNotes] = useState(initial?.notes ?? '')
   const [testEndDate, setTestEndDate] = useState(initial?.testEndDate ?? '')
@@ -51,6 +56,7 @@ export function PatternForm({ initial, calMode = false, testMode = false, author
   )
 
   const [errors, setErrors] = useState<Record<string, string>>({})
+  const [saving, setSaving] = useState(false)
 
   const validate = () => {
     const e: Record<string, string> = {}
@@ -60,56 +66,81 @@ export function PatternForm({ initial, calMode = false, testMode = false, author
     return e
   }
 
+  const handleCoverChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setPendingCoverFile(file)
+    setCoverPreview(URL.createObjectURL(file))
+    setCoverImageUrl('')
+  }
+
+  const clearCover = () => {
+    setPendingCoverFile(null)
+    setCoverPreview('')
+    setCoverImageUrl('')
+    if (coverInputRef.current) coverInputRef.current.value = ''
+  }
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => {
-      setPdfUrl(reader.result as string)
-      setPdfFileName(file.name)
-    }
-    reader.readAsDataURL(file)
+    setPendingFile(file)
+    setPdfFileName(file.name)
+    setPdfUrl('')
   }
 
   const clearFile = () => {
+    setPendingFile(null)
     setPdfUrl('')
     setPdfFileName('')
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const e = validate()
     if (Object.keys(e).length > 0) { setErrors(e); return }
-
-    const pattern: Pattern = {
-      id: initial?.id ?? uuidv4(),
-      name: name.trim(),
-      author: author.trim(),
-      price: parseFloat(price) || 0,
-      currency,
-      purchaseDate,
-      status: 'purchased',
-      metrageFrom: metrageFrom ? parseFloat(metrageFrom) : undefined,
-      metrageTo: metrageTo ? parseFloat(metrageTo) : undefined,
-      coverImageUrl: coverImageUrl.trim() || undefined,
-      pdfUrl: calMode ? undefined : (pdfUrl || undefined),
-      pdfFileName: calMode ? undefined : (pdfFileName || undefined),
-      tags,
-      notes: notes.trim() || undefined,
-      isCal: initial?.isCal ?? calMode,
-      isTest: (initial?.isTest ?? testMode) || undefined,
-      testEndDate: testMode ? (testEndDate || undefined) : undefined,
-      calDetails: calMode ? {
-        startDate: calStartDate,
-        endDate: calEndDate || undefined,
-        facebookUrl: calFbUrl.trim() || undefined,
-        contestDate: calContestDate || undefined,
-        schedule: calSchedule.filter(p => p.name.trim()),
-      } : undefined,
-      createdAt: initial?.createdAt ?? new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    setSaving(true)
+    try {
+      let finalCoverUrl = coverImageUrl
+      if (pendingCoverFile) {
+        finalCoverUrl = await uploadFile(pendingCoverFile, 'covers')
+      }
+      let finalPdfUrl = pdfUrl
+      if (pendingFile) {
+        finalPdfUrl = await uploadFile(pendingFile, 'pdfs')
+      }
+      const pattern: Pattern = {
+        id: initial?.id ?? uuidv4(),
+        name: name.trim(),
+        author: author.trim(),
+        price: parseFloat(price) || 0,
+        currency,
+        purchaseDate,
+        status: initial?.status ?? 'purchased',
+        metrageFrom: metrageFrom ? parseFloat(metrageFrom) : undefined,
+        metrageTo: metrageTo ? parseFloat(metrageTo) : undefined,
+        coverImageUrl: finalCoverUrl || undefined,
+        pdfUrl: calMode ? undefined : (finalPdfUrl || undefined),
+        pdfFileName: calMode ? undefined : (pdfFileName || undefined),
+        tags,
+        notes: notes.trim() || undefined,
+        isCal: initial?.isCal ?? calMode,
+        isTest: (initial?.isTest ?? testMode) || undefined,
+        testEndDate: testMode ? (testEndDate || undefined) : undefined,
+        calDetails: calMode ? {
+          startDate: calStartDate,
+          endDate: calEndDate || undefined,
+          facebookUrl: calFbUrl.trim() || undefined,
+          contestDate: calContestDate || undefined,
+          schedule: calSchedule.filter(p => p.name.trim()),
+        } : undefined,
+        createdAt: initial?.createdAt ?? new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      await onSave(pattern)
+    } finally {
+      setSaving(false)
     }
-    onSave(pattern)
   }
 
   const addSchedulePart = () =>
@@ -308,14 +339,43 @@ export function PatternForm({ initial, calMode = false, testMode = false, author
 
       {/* Okładka */}
       <div className={fieldClass}>
-        <label className={labelClass}>Okładka (URL zdjęcia)</label>
-        <input
-          type="url"
-          value={coverImageUrl}
-          onChange={e => setCoverImageUrl(e.target.value)}
-          placeholder="https://..."
-          className={inputClass}
-        />
+        <label className={labelClass}>Okładka</label>
+        {coverPreview || coverImageUrl ? (
+          <div className="flex items-start gap-3">
+            <img
+              src={coverPreview || coverImageUrl}
+              alt="Podgląd okładki"
+              className="w-20 h-20 object-cover rounded-lg border border-zinc-200 dark:border-zinc-700"
+            />
+            <button
+              type="button"
+              onClick={clearCover}
+              className="text-xs text-red-500 hover:text-red-700 dark:hover:text-red-400 font-medium mt-1 transition-colors"
+            >
+              Usuń zdjęcie
+            </button>
+          </div>
+        ) : (
+          <div>
+            <input
+              ref={coverInputRef}
+              type="file"
+              accept=".jpg,.jpeg,.png,.webp"
+              onChange={handleCoverChange}
+              className="hidden"
+              id="cover-image-input"
+            />
+            <label
+              htmlFor="cover-image-input"
+              className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-zinc-300 dark:border-zinc-600 text-sm text-zinc-500 dark:text-zinc-400 hover:border-violet-400 hover:text-violet-600 dark:hover:text-violet-400 cursor-pointer transition-colors"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Wybierz zdjęcie
+            </label>
+          </div>
+        )}
       </div>
 
       {/* Dodaj plik — tylko dla wzoru */}
@@ -391,9 +451,10 @@ export function PatternForm({ initial, calMode = false, testMode = false, author
         <button
           type="button"
           onClick={handleSubmit}
-          className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 text-white text-sm font-semibold transition-colors"
+          disabled={saving}
+          className="flex-1 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-60 text-white text-sm font-semibold transition-colors"
         >
-          {initial ? 'Zapisz zmiany' : calMode ? 'Dodaj CAL' : testMode ? 'Dodaj testy' : 'Dodaj wzór'}
+          {saving ? 'Zapisuję...' : initial ? 'Zapisz zmiany' : calMode ? 'Dodaj CAL' : testMode ? 'Dodaj testy' : 'Dodaj wzór'}
         </button>
       </div>
     </div>

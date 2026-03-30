@@ -38,4 +38,17 @@ export const COLORS = {
     gradient: 'from-teal-400 to-teal-600',
     editButton: 'bg-teal-600 hover:bg-teal-700',
   },
+  motek: {
+    button: 'bg-amber-600 hover:bg-amber-700',
+    badge: 'bg-amber-600 text-white',
+    badgeSoft: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
+    border: 'border-amber-200 dark:border-amber-800',
+    bg: 'bg-amber-50/50 dark:bg-amber-900/10',
+    bgSolid: 'bg-amber-50 dark:bg-amber-900/20',
+    text: 'text-amber-700 dark:text-amber-300',
+    tag: 'text-amber-600 dark:text-amber-400',
+    ring: 'focus:ring-amber-500',
+    gradient: 'from-amber-400 to-orange-500',
+    editButton: 'bg-amber-600 hover:bg-amber-700',
+  },
 } as const

@@ -17,6 +17,9 @@ dist-ssr
 .env.*
 !.env.example
 
+supabase-project-psswrd.txt
+supabase-schema.sql
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

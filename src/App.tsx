@@ -2,23 +2,30 @@ import { useState, useMemo } from 'react'
 import { useTheme } from './hooks/useTheme'
 import { usePatterns } from './hooks/usePatterns'
 import { useAuthors } from './hooks/useAuthors'
+import { useMotki } from './hooks/useMotki'
 import { COLORS } from './lib/colors'
 import { Header } from './components/layout/Header'
 import { PatternCard } from './components/patterns/PatternCard'
 import { PatternForm } from './components/patterns/PatternForm'
 import { PatternDetail } from './components/patterns/PatternDetail'
+import { MotekCard } from './components/motki/MotekCard'
+import { MotekForm } from './components/motki/MotekForm'
+import { MotekDetail } from './components/motki/MotekDetail'
 import { Modal } from './components/ui/Modal'
 import { AuthorsModal } from './components/ui/AuthorsModal'
-import type { Pattern, PatternStatus } from './types'
+import type { Pattern, PatternStatus, Motek } from './types'
 import { STATUS_LABELS } from './types'
 
 const ALL_STATUSES: PatternStatus[] = ['purchased', 'in_progress', 'completed', 'abandoned']
 
 export default function App() {
   const { theme, toggle: toggleTheme } = useTheme()
-  const { patterns, add, update, remove } = usePatterns()
-  const { authors, addAuthor, removeAuthor, updateAuthor } = useAuthors()
+  const { patterns, loading: loadingPatterns, add, update, remove } = usePatterns()
+  const { authors, loading: loadingAuthors, addAuthor, removeAuthor, updateAuthor } = useAuthors()
+  const { motki, loading: loadingMotki, add: addMotek, update: updateMotek, remove: removeMotek } = useMotki()
+  const isLoading = loadingPatterns || loadingAuthors || loadingMotki
   const [showAuthors, setShowAuthors] = useState(false)
+  const [activeSection, setActiveSection] = useState<'wzory' | 'motki'>('wzory')
 
   const [showAddForm, setShowAddForm] = useState(false)
   const [showAddCalForm, setShowAddCalForm] = useState(false)
@@ -28,6 +35,10 @@ export default function App() {
   const [filterStatus, setFilterStatus] = useState<PatternStatus | 'all'>('all')
   const [filterTags, setFilterTags] = useState<Set<string>>(new Set())
   const [search, setSearch] = useState('')
+
+  const [showAddMotekForm, setShowAddMotekForm] = useState(false)
+  const [editingMotek, setEditingMotek] = useState<Motek | null>(null)
+  const [viewingMotek, setViewingMotek] = useState<Motek | null>(null)
 
   // All unique tags
   const allTags = useMemo(() => {
@@ -57,22 +68,22 @@ export default function App() {
     })
   }, [patterns, filterStatus, filterTags, search])
 
-  const handleSave = (pattern: Pattern) => {
+  const handleSave = async (pattern: Pattern): Promise<void> => {
     if (editingPattern) {
-      update(pattern)
+      await update(pattern)
       setEditingPattern(null)
       setViewingPattern(pattern)
     } else {
-      add(pattern)
+      await add(pattern)
       setShowAddForm(false)
       setShowAddCalForm(false)
       setShowAddTestForm(false)
     }
   }
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm('Na pewno usunąć ten wzór?')) {
-      remove(id)
+      await remove(id)
       setViewingPattern(null)
     }
   }
@@ -82,11 +93,111 @@ export default function App() {
     setEditingPattern(pattern)
   }
 
+  const handleSaveMotek = async (motek: Motek): Promise<void> => {
+    if (editingMotek) {
+      await updateMotek(motek)
+      setEditingMotek(null)
+      setViewingMotek(motek)
+    } else {
+      await addMotek(motek)
+      setShowAddMotekForm(false)
+    }
+  }
+
+  const handleDeleteMotek = async (id: string) => {
+    if (confirm('Na pewno usunąć ten motek?')) {
+      await removeMotek(id)
+      setViewingMotek(null)
+    }
+  }
+
+  const handleEditMotek = (motek: Motek) => {
+    setViewingMotek(null)
+    setEditingMotek(motek)
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-10 h-10 border-4 border-violet-200 dark:border-violet-800 border-t-violet-600 rounded-full animate-spin" />
+          <p className="text-sm text-zinc-400 dark:text-zinc-500">Ładowanie...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 transition-colors">
       <Header theme={theme} onToggleTheme={toggleTheme} />
 
       <main className="max-w-7xl mx-auto px-4 py-8">
+        {/* Section tabs */}
+        <div className="flex gap-1 mb-8 bg-zinc-100 dark:bg-zinc-900 rounded-2xl p-1 w-fit">
+          <button
+            onClick={() => setActiveSection('wzory')}
+            className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${activeSection === 'wzory' ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'}`}
+          >
+            Wzory
+          </button>
+          <button
+            onClick={() => setActiveSection('motki')}
+            className={`px-5 py-2 rounded-xl text-sm font-semibold transition-all ${activeSection === 'motki' ? 'bg-white dark:bg-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'}`}
+          >
+            Moje motki
+            {motki.length > 0 && (
+              <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                {motki.length}
+              </span>
+            )}
+          </button>
+        </div>
+
+        {activeSection === 'motki' ? (
+          <>
+            {/* Motki toolbar */}
+            <div className="flex justify-between items-center mb-6">
+              <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                {motki.length === 0 ? 'Brak motków' : `${motki.length} ${motki.length === 1 ? 'motek' : motki.length < 5 ? 'motki' : 'motków'}`}
+              </p>
+              <button
+                onClick={() => setShowAddMotekForm(true)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl ${COLORS.motek.button} text-white text-sm font-semibold transition-colors shadow-sm`}
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Dodaj motek
+              </button>
+            </div>
+
+            {/* Motki grid */}
+            {motki.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-24 text-center">
+                <span className="text-6xl mb-4">🧶</span>
+                <p className="text-lg font-semibold text-zinc-700 dark:text-zinc-300">Baza motków jest pusta</p>
+                <p className="text-sm text-zinc-400 dark:text-zinc-500 mt-1">Dodaj swój pierwszy motek!</p>
+                <button
+                  onClick={() => setShowAddMotekForm(true)}
+                  className="mt-6 px-6 py-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold transition-colors"
+                >
+                  Dodaj motek
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+                {motki.map(motek => (
+                  <MotekCard
+                    key={motek.id}
+                    motek={motek}
+                    onClick={() => setViewingMotek(motek)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
+        ) : (
+          <>
         {/* Stats */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
           {[
@@ -228,7 +339,42 @@ export default function App() {
             ))}
           </div>
         )}
+          </>
+        )}
       </main>
+
+      {/* Motki Modals */}
+      <Modal open={showAddMotekForm} onClose={() => setShowAddMotekForm(false)} title="Dodaj motek">
+        <MotekForm
+          patterns={patterns}
+          onSave={handleSaveMotek}
+          onCancel={() => setShowAddMotekForm(false)}
+          onQuickAddPattern={add}
+        />
+      </Modal>
+
+      <Modal open={!!editingMotek} onClose={() => setEditingMotek(null)} title="Edytuj motek">
+        {editingMotek && (
+          <MotekForm
+            initial={editingMotek}
+            patterns={patterns}
+            onSave={handleSaveMotek}
+            onCancel={() => setEditingMotek(null)}
+            onQuickAddPattern={add}
+          />
+        )}
+      </Modal>
+
+      <Modal open={!!viewingMotek} onClose={() => setViewingMotek(null)} title="Motek">
+        {viewingMotek && (
+          <MotekDetail
+            motek={viewingMotek}
+            patterns={patterns}
+            onEdit={() => handleEditMotek(viewingMotek)}
+            onDelete={() => handleDeleteMotek(viewingMotek.id)}
+          />
+        )}
+      </Modal>
 
       {/* Authors Modal */}
       <Modal open={showAuthors} onClose={() => setShowAuthors(false)} title="Baza autorów">

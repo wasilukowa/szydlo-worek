@@ -47,6 +47,20 @@ export interface Pattern {
   updatedAt: string
 }
 
+export interface Motek {
+  id: string
+  metrage: number
+  hasDowijka: boolean
+  dowijkaMetrage?: number
+  inUse: boolean
+  patternId?: string
+  firma?: string
+  imageUrl?: string
+  komentarz?: string
+  createdAt: string
+  updatedAt: string
+}
+
 export const STATUS_LABELS: Record<PatternStatus, string> = {
   purchased: 'Kupiony',
   in_progress: 'W trakcie',

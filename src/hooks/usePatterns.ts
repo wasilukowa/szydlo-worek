@@ -1,28 +1,34 @@
-import { useState, useCallback } from 'react'
-import { getPatterns, addPattern, updatePattern, deletePattern } from '../lib/storage'
+import { useState, useCallback, useEffect } from 'react'
+import { fetchPatterns, insertPattern, patchPattern, removePattern } from '../lib/storage'
 import type { Pattern } from '../types'
 
 export function usePatterns() {
-  const [patterns, setPatterns] = useState<Pattern[]>(() => getPatterns())
+  const [patterns, setPatterns] = useState<Pattern[]>([])
+  const [loading, setLoading] = useState(true)
 
-  const refresh = useCallback(() => {
-    setPatterns(getPatterns())
+  const refresh = useCallback(async () => {
+    const data = await fetchPatterns()
+    setPatterns(data)
   }, [])
 
-  const add = useCallback((pattern: Pattern) => {
-    addPattern(pattern)
-    setPatterns(getPatterns())
-  }, [])
+  useEffect(() => {
+    refresh().finally(() => setLoading(false))
+  }, [refresh])
 
-  const update = useCallback((pattern: Pattern) => {
-    updatePattern(pattern)
-    setPatterns(getPatterns())
-  }, [])
+  const add = useCallback(async (pattern: Pattern) => {
+    await insertPattern(pattern)
+    await refresh()
+  }, [refresh])
 
-  const remove = useCallback((id: string) => {
-    deletePattern(id)
-    setPatterns(getPatterns())
-  }, [])
+  const update = useCallback(async (pattern: Pattern) => {
+    await patchPattern(pattern)
+    await refresh()
+  }, [refresh])
 
-  return { patterns, add, update, remove, refresh }
+  const remove = useCallback(async (id: string) => {
+    await removePattern(id)
+    await refresh()
+  }, [refresh])
+
+  return { patterns, loading, add, update, remove, refresh }
 }
