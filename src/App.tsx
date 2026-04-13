@@ -7,6 +7,7 @@ import { useMotki } from './hooks/useMotki'
 import { COLORS } from './lib/colors'
 import { Header } from './components/layout/Header'
 import { AuthPage } from './components/auth/AuthPage'
+import { NewPasswordPage } from './components/auth/NewPasswordPage'
 import { PatternCard } from './components/patterns/PatternCard'
 import { PatternForm } from './components/patterns/PatternForm'
 import { PatternDetail } from './components/patterns/PatternDetail'
@@ -23,7 +24,7 @@ const ALL_STATUSES: PatternStatus[] = ['purchased', 'in_progress', 'completed', 
 
 export default function App() {
   const { theme, toggle: toggleTheme } = useTheme()
-  const { session, loading: loadingAuth } = useAuth()
+  const { session, loading: loadingAuth, isRecovery } = useAuth()
   const { patterns, loading: loadingPatterns, add, update, remove } = usePatterns()
   const { authors, loading: loadingAuthors, addAuthor, removeAuthor, updateAuthor } = useAuthors()
   const { motki, loading: loadingMotki, add: addMotek, update: updateMotek, remove: removeMotek } = useMotki()
@@ -130,6 +131,10 @@ export default function App() {
 
   if (!session) {
     return <AuthPage />
+  }
+
+  if (isRecovery) {
+    return <NewPasswordPage />
   }
 
   if (isLoading) {

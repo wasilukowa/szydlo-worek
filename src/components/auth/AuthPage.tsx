@@ -1,7 +1,18 @@
 import { useState } from 'react'
 import { supabase } from '../../lib/supabase'
 
-type Mode = 'login' | 'register'
+type Mode = 'login' | 'register' | 'forgot'
+
+function GoogleIcon() {
+  return (
+    <svg className="w-4 h-4" viewBox="0 0 24 24">
+      <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+      <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+      <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l3.66-2.84z"/>
+      <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+    </svg>
+  )
+}
 
 export function AuthPage() {
   const [mode, setMode] = useState<Mode>('login')
@@ -10,6 +21,8 @@ export function AuthPage() {
   const [error, setError] = useState<string | null>(null)
   const [info, setInfo] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  const reset = (m: Mode) => { setMode(m); setError(null); setInfo(null) }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -21,10 +34,16 @@ export function AuthPage() {
       if (mode === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email, password })
         if (error) throw error
-      } else {
+      } else if (mode === 'register') {
         const { error } = await supabase.auth.signUp({ email, password })
         if (error) throw error
         setInfo('Sprawdź skrzynkę mailową i potwierdź rejestrację.')
+      } else {
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: `${window.location.origin}`,
+        })
+        if (error) throw error
+        setInfo('Wysłaliśmy link do zresetowania hasła na podany adres.')
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Nieznany błąd'
@@ -37,6 +56,13 @@ export function AuthPage() {
     }
   }
 
+  const handleGoogle = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: window.location.origin },
+    })
+  }
+
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
@@ -47,24 +73,54 @@ export function AuthPage() {
         </div>
 
         <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-100 dark:border-zinc-800 p-6 shadow-sm">
-          {/* Tabs */}
-          <div className="flex gap-1 mb-6 bg-zinc-100 dark:bg-zinc-800 rounded-xl p-1">
-            {(['login', 'register'] as const).map(m => (
+          {mode !== 'forgot' && (
+            <>
+              {/* Tabs */}
+              <div className="flex gap-1 mb-6 bg-zinc-100 dark:bg-zinc-800 rounded-xl p-1">
+                {(['login', 'register'] as const).map(m => (
+                  <button
+                    key={m}
+                    onClick={() => reset(m)}
+                    className={`flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all ${mode === m ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'}`}
+                  >
+                    {m === 'login' ? 'Logowanie' : 'Rejestracja'}
+                  </button>
+                ))}
+              </div>
+
+              {/* Google */}
               <button
-                key={m}
-                onClick={() => { setMode(m); setError(null); setInfo(null) }}
-                className={`flex-1 py-1.5 rounded-lg text-sm font-semibold transition-all ${mode === m ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-zinc-100 shadow-sm' : 'text-zinc-500 dark:text-zinc-400 hover:text-zinc-700 dark:hover:text-zinc-200'}`}
+                onClick={handleGoogle}
+                className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-sm font-semibold text-zinc-700 dark:text-zinc-200 hover:bg-zinc-50 dark:hover:bg-zinc-700 transition-colors mb-4"
               >
-                {m === 'login' ? 'Logowanie' : 'Rejestracja'}
+                <GoogleIcon />
+                {mode === 'login' ? 'Zaloguj przez Google' : 'Zarejestruj przez Google'}
               </button>
-            ))}
-          </div>
+
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
+                <span className="text-xs text-zinc-400">lub</span>
+                <div className="flex-1 h-px bg-zinc-100 dark:bg-zinc-800" />
+              </div>
+            </>
+          )}
+
+          {mode === 'forgot' && (
+            <div className="mb-5">
+              <button onClick={() => reset('login')} className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-800 dark:hover:text-zinc-200 transition-colors mb-3">
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                </svg>
+                Wróć do logowania
+              </button>
+              <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Resetowanie hasła</p>
+              <p className="text-xs text-zinc-500 dark:text-zinc-400 mt-0.5">Wyślemy Ci link do ustawienia nowego hasła.</p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                Email
-              </label>
+              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Email</label>
               <input
                 type="email"
                 value={email}
@@ -76,28 +132,36 @@ export function AuthPage() {
               />
             </div>
 
-            <div>
-              <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                Hasło
-              </label>
-              <input
-                type="password"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                placeholder={mode === 'register' ? 'minimum 6 znaków' : '••••••••'}
-                minLength={6}
-                className="w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
-              />
-            </div>
+            {mode !== 'forgot' && (
+              <div>
+                <label className="block text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">Hasło</label>
+                <input
+                  type="password"
+                  value={password}
+                  onChange={e => setPassword(e.target.value)}
+                  required
+                  autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+                  placeholder={mode === 'register' ? 'minimum 6 znaków' : '••••••••'}
+                  minLength={6}
+                  className="w-full px-3 py-2 rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800 text-sm text-zinc-900 dark:text-zinc-100 placeholder:text-zinc-400 focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-transparent"
+                />
+                {mode === 'login' && (
+                  <button
+                    type="button"
+                    onClick={() => reset('forgot')}
+                    className="mt-1.5 text-xs text-violet-600 dark:text-violet-400 hover:underline"
+                  >
+                    Zapomniałam hasła
+                  </button>
+                )}
+              </div>
+            )}
 
             {error && (
               <p className="text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-xl px-3 py-2">
                 {error}
               </p>
             )}
-
             {info && (
               <p className="text-xs text-emerald-700 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-xl px-3 py-2">
                 {info}
@@ -109,7 +173,7 @@ export function AuthPage() {
               disabled={loading}
               className="mt-1 w-full py-2.5 rounded-xl bg-violet-600 hover:bg-violet-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-semibold transition-colors"
             >
-              {loading ? 'Chwila...' : mode === 'login' ? 'Zaloguj się' : 'Zarejestruj się'}
+              {loading ? 'Chwila...' : mode === 'login' ? 'Zaloguj się' : mode === 'register' ? 'Zarejestruj się' : 'Wyślij link'}
             </button>
           </form>
         </div>
