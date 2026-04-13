@@ -4,8 +4,10 @@ import type { Pattern, Author, Motek } from '../types'
 // ─── File upload ─────────────────────────────────────────────────────────────
 
 export async function uploadFile(file: File, folder: string): Promise<string> {
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) throw new Error('Brak sesji')
   const ext = file.name.split('.').pop() ?? 'bin'
-  const path = `${folder}/${crypto.randomUUID()}.${ext}`
+  const path = `${user.id}/${folder}/${crypto.randomUUID()}.${ext}`
   const { error } = await supabase.storage.from(BUCKET).upload(path, file)
   if (error) throw error
   const { data } = supabase.storage.from(BUCKET).getPublicUrl(path)

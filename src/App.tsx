@@ -1,10 +1,12 @@
 import { useState, useMemo } from 'react'
 import { useTheme } from './hooks/useTheme'
+import { useAuth } from './hooks/useAuth'
 import { usePatterns } from './hooks/usePatterns'
 import { useAuthors } from './hooks/useAuthors'
 import { useMotki } from './hooks/useMotki'
 import { COLORS } from './lib/colors'
 import { Header } from './components/layout/Header'
+import { AuthPage } from './components/auth/AuthPage'
 import { PatternCard } from './components/patterns/PatternCard'
 import { PatternForm } from './components/patterns/PatternForm'
 import { PatternDetail } from './components/patterns/PatternDetail'
@@ -13,6 +15,7 @@ import { MotekForm } from './components/motki/MotekForm'
 import { MotekDetail } from './components/motki/MotekDetail'
 import { Modal } from './components/ui/Modal'
 import { AuthorsModal } from './components/ui/AuthorsModal'
+import { supabase } from './lib/supabase'
 import type { Pattern, PatternStatus, Motek } from './types'
 import { STATUS_LABELS } from './types'
 
@@ -20,6 +23,7 @@ const ALL_STATUSES: PatternStatus[] = ['purchased', 'in_progress', 'completed', 
 
 export default function App() {
   const { theme, toggle: toggleTheme } = useTheme()
+  const { session, loading: loadingAuth } = useAuth()
   const { patterns, loading: loadingPatterns, add, update, remove } = usePatterns()
   const { authors, loading: loadingAuthors, addAuthor, removeAuthor, updateAuthor } = useAuthors()
   const { motki, loading: loadingMotki, add: addMotek, update: updateMotek, remove: removeMotek } = useMotki()
@@ -116,6 +120,18 @@ export default function App() {
     setEditingMotek(motek)
   }
 
+  if (loadingAuth) {
+    return (
+      <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center">
+        <div className="w-10 h-10 border-4 border-violet-200 dark:border-violet-800 border-t-violet-600 rounded-full animate-spin" />
+      </div>
+    )
+  }
+
+  if (!session) {
+    return <AuthPage />
+  }
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 flex items-center justify-center">
@@ -129,7 +145,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950 transition-colors">
-      <Header theme={theme} onToggleTheme={toggleTheme} />
+      <Header theme={theme} onToggleTheme={toggleTheme} onLogout={() => supabase.auth.signOut()} />
 
       <main className="max-w-7xl mx-auto px-4 py-8">
         {/* Section tabs */}
